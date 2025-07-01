@@ -99,7 +99,7 @@ async function fetchFromGoogleSheets() {
       console.log('Sample data row:', rows[1]);
       console.log('Raw row data with indices:');
       rows[1].forEach((cell, index) => {
-        console.log(`  Index ${index}: "${cell}"`);
+        console.log(`  Index ${index} (Column ${String.fromCharCode(65 + index)}): "${cell}"`);
       });
     }
   }
@@ -117,12 +117,12 @@ async function fetchFromGoogleSheets() {
       paddedRow.push('');
     }
     
-    const title = paddedRow[0] || '';
-    const description = paddedRow[1] || '';
-    const date = paddedRow[2] || '';
-    const batchNumber = parseInt(paddedRow[3]) || (index + 1);
-    const script = paddedRow[4] || ''; // Column E (Script)
-    const flagValue = paddedRow[5] || ''; // Column F (Flag)
+    const title = paddedRow[0] || '';           // Column A
+    const description = paddedRow[1] || '';     // Column B
+    const date = paddedRow[2] || '';            // Column C
+    const batchNumber = parseInt(paddedRow[3]) || (index + 1); // Column D
+    const flagValue = paddedRow[4] || '';       // Column E (Flag)
+    const script = paddedRow[5] || '';          // Column F (Script)
     
     // Determine flag status: "Complete" if has value, "Incomplete" if empty
     const flag = flagValue.trim() !== '' ? 'Complete' : 'Incomplete';
@@ -130,11 +130,19 @@ async function fetchFromGoogleSheets() {
     console.log(`Processing row ${index + 1}:`, {
       title: title,
       description: description.substring(0, 50) + '...',
-      script: script ? script.substring(0, 50) + '...' : '(empty)',
+      flagValue: flagValue,
+      script: script ? script.substring(0, 100) + '...' : '(empty)',
       scriptLength: script.length,
       flag: flag,
-      rawFlagValue: flagValue,
-      rawRowLength: row.length
+      rawRowLength: row.length,
+      columnMapping: {
+        A: paddedRow[0],
+        B: paddedRow[1],
+        C: paddedRow[2],
+        D: paddedRow[3],
+        E: paddedRow[4],
+        F: paddedRow[5]
+      }
     });
     
     return {
@@ -148,7 +156,11 @@ async function fetchFromGoogleSheets() {
   });
 
   console.log(`Successfully fetched ${ideas.length} ideas from Google Sheets`);
-  console.log('Sample processed idea:', ideas[0]);
+  console.log('Sample processed idea with script:', {
+    title: ideas[0]?.title,
+    scriptLength: ideas[0]?.script?.length,
+    scriptPreview: ideas[0]?.script?.substring(0, 100)
+  });
   return ideas;
 }
 
@@ -215,9 +227,9 @@ async function initializeGoogleSheet() {
 
     if (!response.data.values || response.data.values.length === 0) {
       await updateSheet(`${GOOGLE_SHEETS_CONFIG.sheetName}!A1:F1`, [
-        ['Title', 'Description', 'Date', 'Batch_Number', 'Script', 'Flag']
+        ['Title', 'Description', 'Date', 'Batch_Number', 'Flag', 'Script']
       ]);
-      console.log(`Successfully initialized ${GOOGLE_SHEETS_CONFIG.sheetName} with headers including Script and Flag columns`);
+      console.log(`Successfully initialized ${GOOGLE_SHEETS_CONFIG.sheetName} with headers: Title, Description, Date, Batch_Number, Flag, Script`);
     } else {
       console.log(`Headers already exist in ${GOOGLE_SHEETS_CONFIG.sheetName}`);
       
@@ -228,11 +240,11 @@ async function initializeGoogleSheet() {
       if (headers.length < 6) {
         // Add missing headers
         const updatedHeaders = [...headers];
-        if (!updatedHeaders[4]) updatedHeaders[4] = 'Script';
-        if (!updatedHeaders[5]) updatedHeaders[5] = 'Flag';
+        if (!updatedHeaders[4]) updatedHeaders[4] = 'Flag';
+        if (!updatedHeaders[5]) updatedHeaders[5] = 'Script';
         
         await updateSheet(`${GOOGLE_SHEETS_CONFIG.sheetName}!A1:F1`, [updatedHeaders]);
-        console.log('Added Script and Flag columns to existing headers');
+        console.log('Added Flag and Script columns to existing headers');
       }
     }
   } catch (error) {
