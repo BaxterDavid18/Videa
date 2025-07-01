@@ -1,87 +1,74 @@
 require('dotenv').config();
-const { google } = require('googleapis');
 
-// Google Sheets configuration - exactly like your reference
+// Simple Google Sheets API using API key instead of service account
 const GOOGLE_SHEETS_CONFIG = {
   spreadsheetId: process.env.GOOGLE_SHEET_ID,
   sheetName: process.env.GOOGLE_SHEET_NAME || 'Sheet2',
-  serviceAccountEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-  privateKey: process.env.GOOGLE_PRIVATE_KEY ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') : '', // Handle newlines properly and check if defined
+  apiKey: process.env.GOOGLE_API_KEY,
 };
 
-// Initialize Google Auth - following your reference pattern exactly
-const auth = new google.auth.GoogleAuth({
-  credentials: {
-    type: "service_account",
-    project_id: "charged-chain-462106-d6",
-    private_key_id: "fdb1457e4270bab4a439cadc0c68f4e58af93884",
-    private_key: GOOGLE_SHEETS_CONFIG.privateKey,
-    client_email: GOOGLE_SHEETS_CONFIG.serviceAccountEmail,
-    client_id: "117059580923069451060",
-    auth_uri: "https://accounts.google.com/o/oauth2/auth",
-    token_uri: "https://oauth2.googleapis.com/token",
-    auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-    client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/videa-217%40charged-chain-462106-d6.iam.gserviceaccount.com",
-    universe_domain: "googleapis.com"
-  },
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+console.log("✅ Loaded ENV: ", {
+  GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID,
+  GOOGLE_SHEET_NAME: process.env.GOOGLE_SHEET_NAME,
+  GOOGLE_API_KEY: process.env.GOOGLE_API_KEY ? 'Set' : 'Not set'
 });
 
-// Initialize Google Sheets API
-const sheets = google.sheets({ version: 'v4', auth });
+// Helper function to make API requests
+async function makeGoogleSheetsRequest(endpoint, options = {}) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.spreadsheetId}${endpoint}?key=${GOOGLE_SHEETS_CONFIG.apiKey}`;
+  
+  const response = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers
+    },
+    ...options
+  });
 
-// Helper function to update sheets - exactly like your reference
-async function updateSheet(range, values) {
-  try {
-    console.log(`Updating sheet range: ${range} with ${values.length} rows`);
-    
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: GOOGLE_SHEETS_CONFIG.spreadsheetId,
-      range: range,
-      valueInputOption: 'RAW',
-      resource: { values },
-    });
-    
-    console.log(`Successfully updated ${range} with ${values.length} rows.`);
-  } catch (error) {
-    console.error(`Error updating ${range}:`, error);
-    throw error;
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Google Sheets API error: ${response.status} - ${error}`);
   }
+
+  return response.json();
 }
 
-// Append data to Google Sheets - following your reference pattern
+// Append data to Google Sheets using API key
 async function appendToGoogleSheet(data) {
   try {
     console.log('Appending data to Google Sheets:', data);
     
     const values = [[data.title, data.description, data.date, data.batchNumber]];
     
-    const response = await sheets.spreadsheets.values.append({
-      spreadsheetId: GOOGLE_SHEETS_CONFIG.spreadsheetId,
-      range: `${GOOGLE_SHEETS_CONFIG.sheetName}!A:D`,
-      valueInputOption: 'RAW',
-      resource: { values },
-    });
+    const response = await makeGoogleSheetsRequest(
+      `/values/${GOOGLE_SHEETS_CONFIG.sheetName}!A:D:append`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          values: values,
+          valueInputOption: 'RAW'
+        })
+      }
+    );
     
     console.log(`Successfully appended data to ${GOOGLE_SHEETS_CONFIG.sheetName}`);
-    return response.data;
+    return response;
   } catch (error) {
     console.error('Error appending to Google Sheets:', error);
     throw error;
   }
 }
 
-// Fetch data from Google Sheets - following your reference pattern
+// Fetch data from Google Sheets using API key
 async function fetchFromGoogleSheets() {
   try {
     console.log('Fetching data from Google Sheets...');
     
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: GOOGLE_SHEETS_CONFIG.spreadsheetId,
-      range: `${GOOGLE_SHEETS_CONFIG.sheetName}!A:D`,
-    });
+    const response = await makeGoogleSheetsRequest(
+      `/values/${GOOGLE_SHEETS_CONFIG.sheetName}!A:D`
+    );
     
-    const rows = response.data.values || [];
+    const rows = response.values || [];
     console.log(`Raw data from Google Sheets: ${rows.length} rows`);
     
     if (rows.length === 0) {
@@ -105,17 +92,16 @@ async function fetchFromGoogleSheets() {
   }
 }
 
-// Get next batch number - following your reference pattern
+// Get next batch number using API key
 async function getNextBatchNumber() {
   try {
     console.log('Getting next batch number...');
     
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: GOOGLE_SHEETS_CONFIG.spreadsheetId,
-      range: `${GOOGLE_SHEETS_CONFIG.sheetName}!D:D`, // Column D contains batch numbers
-    });
+    const response = await makeGoogleSheetsRequest(
+      `/values/${GOOGLE_SHEETS_CONFIG.sheetName}!D:D`
+    );
     
-    const values = response.data.values || [];
+    const values = response.values || [];
     console.log(`Batch number column has ${values.length} entries`);
     
     if (values.length <= 1) {
@@ -135,29 +121,38 @@ async function getNextBatchNumber() {
   }
 }
 
-// Test connection - following your reference pattern
+// Test connection using API key
 async function testGoogleSheetsConnection() {
   try {
     console.log('Testing Google Sheets connection...');
     
+    if (!GOOGLE_SHEETS_CONFIG.apiKey) {
+      console.error('Google API key not found in environment variables');
+      return false;
+    }
+
+    if (!GOOGLE_SHEETS_CONFIG.spreadsheetId) {
+      console.error('Google Sheet ID not found in environment variables');
+      return false;
+    }
+    
     // Try to get spreadsheet metadata
-    const response = await sheets.spreadsheets.get({
-      spreadsheetId: GOOGLE_SHEETS_CONFIG.spreadsheetId,
-    });
+    const response = await makeGoogleSheetsRequest('');
     
     console.log('Google Sheets connection successful!');
-    console.log('Spreadsheet title:', response.data.properties?.title);
+    console.log('Spreadsheet title:', response.properties?.title);
     
-    // Check if Sheet2 exists
-    const sheet2 = response.data.sheets?.find(sheet => 
+    // Check if the specified sheet exists
+    const sheet = response.sheets?.find(sheet => 
       sheet.properties?.title === GOOGLE_SHEETS_CONFIG.sheetName
     );
     
-    if (sheet2) {
+    if (sheet) {
       console.log(`${GOOGLE_SHEETS_CONFIG.sheetName} found and accessible`);
       return true;
     } else {
       console.error(`${GOOGLE_SHEETS_CONFIG.sheetName} not found in the spreadsheet`);
+      console.log('Available sheets:', response.sheets?.map(s => s.properties?.title));
       return false;
     }
   } catch (error) {
@@ -166,22 +161,28 @@ async function testGoogleSheetsConnection() {
   }
 }
 
-// Initialize headers if needed
+// Initialize headers if needed using API key
 async function initializeGoogleSheet() {
   try {
     console.log('Checking if headers need to be initialized...');
     
     // Check if headers already exist
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: GOOGLE_SHEETS_CONFIG.spreadsheetId,
-      range: `${GOOGLE_SHEETS_CONFIG.sheetName}!A1:D1`,
-    });
+    const response = await makeGoogleSheetsRequest(
+      `/values/${GOOGLE_SHEETS_CONFIG.sheetName}!A1:D1`
+    );
     
-    if (!response.data.values || response.data.values.length === 0) {
-      // Add headers using updateSheet function like your reference
-      await updateSheet(`${GOOGLE_SHEETS_CONFIG.sheetName}!A1:D1`, [
-        ['Title', 'Description', 'Date', 'Batch_Number']
-      ]);
+    if (!response.values || response.values.length === 0) {
+      // Add headers using update request
+      await makeGoogleSheetsRequest(
+        `/values/${GOOGLE_SHEETS_CONFIG.sheetName}!A1:D1`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            values: [['Title', 'Description', 'Date', 'Batch_Number']],
+            valueInputOption: 'RAW'
+          })
+        }
+      );
       
       console.log(`Successfully initialized ${GOOGLE_SHEETS_CONFIG.sheetName} with headers`);
     } else {
@@ -193,18 +194,10 @@ async function initializeGoogleSheet() {
   }
 }
 
-require('dotenv').config();
-console.log("✅ Loaded ENV: ", {
-  GOOGLE_SHEET_ID: process.env.GOOGLE_SHEET_ID,
-  GOOGLE_SHEET_NAME: process.env.GOOGLE_SHEET_NAME
-});
-
-
 module.exports = {
   appendToGoogleSheet,
   fetchFromGoogleSheets,
   getNextBatchNumber,
   testGoogleSheetsConnection,
-  initializeGoogleSheet,
-  updateSheet
+  initializeGoogleSheet
 };
