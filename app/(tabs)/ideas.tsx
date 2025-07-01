@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FileText, Calendar, Hash, RefreshCw, FileCheck, CircleAlert as AlertCircle } from 'lucide-react-native';
+import { FileText, Calendar, Hash, RefreshCw, FileCheck, CircleAlert as AlertCircle, Copy } from 'lucide-react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import * as Clipboard from 'expo-clipboard';
 
 interface Idea {
   title: string;
@@ -54,6 +55,19 @@ export default function IdeasScreen() {
     
     await fetchIdeas();
     setIsRefreshButtonLoading(false);
+  };
+
+  const copyScriptToClipboard = async (script: string, title: string) => {
+    try {
+      if (script && script.trim() !== '') {
+        await Clipboard.setStringAsync(script);
+        Alert.alert('Copied!', `Script for "${title}" has been copied to clipboard.`);
+      } else {
+        Alert.alert('No Content', 'There is no script content to copy.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to copy script to clipboard.');
+    }
   };
 
   useEffect(() => {
@@ -161,7 +175,7 @@ export default function IdeasScreen() {
                     {idea.description}
                   </Text>
                   
-                  {/* Always show script section, even if empty */}
+                  {/* Script section */}
                   <View style={styles.scriptContainer}>
                     <Text style={styles.scriptLabel}>Script</Text>
                     {idea.script && idea.script.trim() !== '' ? (
@@ -173,6 +187,16 @@ export default function IdeasScreen() {
                         No script content available
                       </Text>
                     )}
+                    
+                    {/* Copy button */}
+                    <TouchableOpacity
+                      style={styles.copyButton}
+                      onPress={() => copyScriptToClipboard(idea.script, idea.title)}
+                      activeOpacity={0.8}
+                    >
+                      <Copy size={16} color="#ffffff" />
+                      <Text style={styles.copyButtonText}>Copy</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               );
@@ -324,6 +348,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#e5e5e5',
     lineHeight: 18,
+    marginBottom: 12,
   },
   scriptPlaceholder: {
     fontSize: 13,
@@ -331,5 +356,22 @@ const styles = StyleSheet.create({
     color: '#666666',
     lineHeight: 18,
     fontStyle: 'italic',
+    marginBottom: 12,
+  },
+  copyButton: {
+    backgroundColor: '#22c55e',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    gap: 6,
+  },
+  copyButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontFamily: 'Inter-Medium',
   },
 });

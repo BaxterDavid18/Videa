@@ -97,6 +97,10 @@ async function fetchFromGoogleSheets() {
     console.log('Headers:', rows[0]);
     if (rows.length > 1) {
       console.log('Sample data row:', rows[1]);
+      console.log('Raw row data with indices:');
+      rows[1].forEach((cell, index) => {
+        console.log(`  Index ${index}: "${cell}"`);
+      });
     }
   }
 
@@ -107,30 +111,44 @@ async function fetchFromGoogleSheets() {
 
   // Skip header row and map data
   const ideas = rows.slice(1).map((row, index) => {
-    const script = row[4] || ''; // Column E (Script)
-    const flagValue = row[5] || ''; // Column F (Flag)
+    // Ensure we have enough columns
+    const paddedRow = [...row];
+    while (paddedRow.length < 6) {
+      paddedRow.push('');
+    }
+    
+    const title = paddedRow[0] || '';
+    const description = paddedRow[1] || '';
+    const date = paddedRow[2] || '';
+    const batchNumber = parseInt(paddedRow[3]) || (index + 1);
+    const script = paddedRow[4] || ''; // Column E (Script)
+    const flagValue = paddedRow[5] || ''; // Column F (Flag)
     
     // Determine flag status: "Complete" if has value, "Incomplete" if empty
     const flag = flagValue.trim() !== '' ? 'Complete' : 'Incomplete';
     
-    console.log(`Row ${index + 1}:`, {
-      title: row[0] || '',
-      script: script,
+    console.log(`Processing row ${index + 1}:`, {
+      title: title,
+      description: description.substring(0, 50) + '...',
+      script: script ? script.substring(0, 50) + '...' : '(empty)',
+      scriptLength: script.length,
       flag: flag,
-      rawFlagValue: flagValue
+      rawFlagValue: flagValue,
+      rawRowLength: row.length
     });
     
     return {
-      title: row[0] || '',
-      description: row[1] || '',
-      date: row[2] || '',
-      batchNumber: parseInt(row[3]) || (index + 1),
-      script: script,
-      flag: flag
+      title,
+      description,
+      date,
+      batchNumber,
+      script,
+      flag
     };
   });
 
   console.log(`Successfully fetched ${ideas.length} ideas from Google Sheets`);
+  console.log('Sample processed idea:', ideas[0]);
   return ideas;
 }
 
