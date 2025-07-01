@@ -74,7 +74,7 @@ async function appendToGoogleSheet(data) {
   const values = [[data.title, data.description, data.date, data.batchNumber]];
   return makeGoogleSheetsRequest(() => sheets.spreadsheets.values.append({
     spreadsheetId: GOOGLE_SHEETS_CONFIG.spreadsheetId,
-    range: `${GOOGLE_SHEETS_CONFIG.sheetName}!A:D`,
+    range: `${GOOGLE_SHEETS_CONFIG.sheetName}!A:F`, // Extended to column F to include Script and Flag
     valueInputOption: 'RAW',
     resource: { values },
   }));
@@ -85,7 +85,7 @@ async function fetchFromGoogleSheets() {
   console.log('Fetching data from Google Sheets...');
   const response = await makeGoogleSheetsRequest(() => sheets.spreadsheets.values.get({
     spreadsheetId: GOOGLE_SHEETS_CONFIG.spreadsheetId,
-    range: `${GOOGLE_SHEETS_CONFIG.sheetName}!A:D`,
+    range: `${GOOGLE_SHEETS_CONFIG.sheetName}!A:F`, // Extended to column F to include Script and Flag
   }));
 
   const rows = response.data.values || [];
@@ -97,12 +97,22 @@ async function fetchFromGoogleSheets() {
   }
 
   // Skip header row and map data
-  const ideas = rows.slice(1).map((row, index) => ({
-    title: row[0] || '',
-    description: row[1] || '',
-    date: row[2] || '',
-    batchNumber: parseInt(row[3]) || (index + 1)
-  }));
+  const ideas = rows.slice(1).map((row, index) => {
+    const script = row[4] || ''; // Column E (Script)
+    const flagValue = row[5] || ''; // Column F (Flag)
+    
+    // Determine flag status: "Complete" if has value, "Incomplete" if empty
+    const flag = flagValue.trim() !== '' ? 'Complete' : 'Incomplete';
+    
+    return {
+      title: row[0] || '',
+      description: row[1] || '',
+      date: row[2] || '',
+      batchNumber: parseInt(row[3]) || (index + 1),
+      script: script,
+      flag: flag
+    };
+  });
 
   console.log(`Successfully fetched ${ideas.length} ideas from Google Sheets`);
   return ideas;
@@ -166,16 +176,28 @@ async function initializeGoogleSheet() {
   try {
     const response = await makeGoogleSheetsRequest(() => sheets.spreadsheets.values.get({
       spreadsheetId: GOOGLE_SHEETS_CONFIG.spreadsheetId,
-      range: `${GOOGLE_SHEETS_CONFIG.sheetName}!A1:D1`,
+      range: `${GOOGLE_SHEETS_CONFIG.sheetName}!A1:F1`, // Extended to column F
     }));
 
     if (!response.data.values || response.data.values.length === 0) {
-      await updateSheet(`${GOOGLE_SHEETS_CONFIG.sheetName}!A1:D1`, [
-        ['Title', 'Description', 'Date', 'Batch_Number']
+      await updateSheet(`${GOOGLE_SHEETS_CONFIG.sheetName}!A1:F1`, [
+        ['Title', 'Description', 'Date', 'Batch_Number', 'Script', 'Flag']
       ]);
-      console.log(`Successfully initialized ${GOOGLE_SHEETS_CONFIG.sheetName} with headers`);
+      console.log(`Successfully initialized ${GOOGLE_SHEETS_CONFIG.sheetName} with headers including Script and Flag columns`);
     } else {
       console.log(`Headers already exist in ${GOOGLE_SHEETS_CONFIG.sheetName}`);
+      
+      // Check if we need to add the new Script and Flag columns
+      const headers = response.data.values[0];
+      if (headers.length < 6) {
+        // Add missing headers
+        const updatedHeaders = [...headers];
+        if (!updatedHeaders[4]) updatedHeaders[4] = 'Script';
+        if (!updatedHeaders[5]) updatedHeaders[5] = 'Flag';
+        
+        await updateSheet(`${GOOGLE_SHEETS_CONFIG.sheetName}!A1:F1`, [updatedHeaders]);
+        console.log('Added Script and Flag columns to existing headers');
+      }
     }
   } catch (error) {
     console.error('Error initializing Google Sheet:', error);

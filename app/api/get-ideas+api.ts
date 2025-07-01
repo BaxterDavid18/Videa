@@ -48,19 +48,25 @@ export async function GET(request: Request) {
         title: "Smart Home Garden System",
         description: "An automated garden system that uses IoT sensors to monitor soil moisture, temperature, and light levels, automatically watering plants and adjusting conditions for optimal growth.",
         date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        batchNumber: 1
+        batchNumber: 1,
+        script: "Welcome to the future of gardening! Our smart home garden system revolutionizes how you care for your plants. Using advanced IoT sensors, this system continuously monitors your garden's vital signs.",
+        flag: "Complete"
       },
       {
         title: "AI-Powered Learning Assistant",
         description: "A personalized learning platform that adapts to individual learning styles and paces, providing customized content and exercises to help students master subjects more effectively.",
         date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        batchNumber: 2
+        batchNumber: 2,
+        script: "Education is evolving, and our AI-powered learning assistant is at the forefront of this transformation. By analyzing your unique learning patterns and preferences, our system creates a truly personalized educational experience.",
+        flag: "Incomplete"
       },
       {
         title: "Sustainable Packaging Solution",
         description: "Biodegradable packaging made from agricultural waste that dissolves harmlessly in water, reducing plastic pollution while maintaining product protection.",
         date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        batchNumber: 3
+        batchNumber: 3,
+        script: "",
+        flag: "Incomplete"
       }
     ];
     
