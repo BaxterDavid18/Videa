@@ -1,9 +1,8 @@
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FileText, Calendar, Hash, RefreshCw, FileCheck, CircleAlert as AlertCircle, Copy } from 'lucide-react-native';
+import { FileText, Calendar, Hash, RefreshCw, FileCheck, CircleAlert as AlertCircle, Copy, ChevronDown, ChevronUp } from 'lucide-react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-// import * as Clipboard from 'expo-clipboard'; // expo-clipboard is removed as per request
 
 interface Idea {
   title: string;
@@ -19,23 +18,25 @@ export default function IdeasScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isRefreshButtonLoading, setIsRefreshButtonLoading] = useState(false);
+  // State to manage which script is expanded (using index)
+  const [expandedScriptIndex, setExpandedScriptIndex] = useState<number | null>(null);
 
   const refreshRotation = useSharedValue(0);
 
   const fetchIdeas = async () => {
     try {
-      console.log('Fetching ideas from API...');
+      console.log('Frontend: Fetching ideas from API...');
       const response = await fetch('/api/get-ideas');
       if (response.ok) {
         const data = await response.json();
-        console.log('API Response:', data);
-        console.log('Ideas received:', data.ideas);
+        console.log('Frontend: API Response:', data);
+        console.log('Frontend: Ideas received:', data.ideas);
         setIdeas(data.ideas || []);
       } else {
-        console.error('Failed to fetch ideas - response not ok:', response.status);
+        console.error('Frontend: Failed to fetch ideas - response not ok:', response.status);
       }
     } catch (error) {
-      console.error('Failed to fetch ideas:', error);
+      console.error('Frontend: Failed to fetch ideas:', error);
     } finally {
       setIsLoading(false);
     }
@@ -83,8 +84,43 @@ export default function IdeasScreen() {
         Alert.alert('No Content', 'There is no script content to copy.');
       }
     } catch (error) {
-      console.error('Failed to copy script:', error);
+      console.error('Frontend: Failed to copy script:', error);
       Alert.alert('Error', 'Failed to copy script to clipboard.');
+    }
+  };
+
+  // Toggle script expansion for a specific idea
+  const toggleScriptExpansion = (index: number) => {
+    setExpandedScriptIndex(expandedScriptIndex === index ? null : index);
+  };
+
+  // Function to update the flag status
+  const updateIdeaFlag = async (batchNumber: number, newFlag: 'Complete' | 'Incomplete') => {
+    console.log(`Frontend: updateIdeaFlag called for batchNumber: ${batchNumber}, newFlag: ${newFlag}`);
+    try {
+      console.log(`Frontend: Sending PUT request to /api/update-idea-flag with batchNumber: ${batchNumber}, newFlag: ${newFlag}`);
+      const response = await fetch('/api/update-idea-flag', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ batchNumber, newFlag }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Frontend: Flag update successful:', result);
+        Alert.alert('Success', `Idea ${batchNumber} marked as ${newFlag}.`);
+        // Refresh ideas to show updated status
+        await fetchIdeas();
+      } else {
+        const errorData = await response.json();
+        console.error('Frontend: Flag update failed - response not ok:', response.status, errorData);
+        Alert.alert('Error', `Failed to update flag: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Frontend: Error updating idea flag:', error);
+      Alert.alert('Error', 'Failed to update flag due to network or server issue.');
     }
   };
 
@@ -151,11 +187,13 @@ export default function IdeasScreen() {
         ) : (
           <View style={styles.ideasContainer}>
             {ideas.map((idea, index) => {
+              const isScriptExpanded = expandedScriptIndex === index;
               console.log(`Rendering idea ${index}:`, {
                 title: idea.title,
                 script: idea.script,
                 scriptLength: idea.script?.length,
-                flag: idea.flag
+                flag: idea.flag,
+                isExpanded: isScriptExpanded
               });
 
               return (
@@ -189,32 +227,68 @@ export default function IdeasScreen() {
                     </View>
                   </View>
 
-                  <Text style={styles.ideaDescription} numberOfLines={3}>
+                  {/* Description section with bold label */}
+                  <Text style={styles.descriptionDisplay}>
+                    <Text style={styles.descriptionDisplayLabel}>Description: </Text>
                     {idea.description}
                   </Text>
 
-                  {/* Script section */}
-                  <View style={styles.scriptContainer}>
-                    <Text style={styles.scriptLabel}>Script</Text>
-                    {idea.script && idea.script.trim() !== '' ? (
-                      <Text style={styles.scriptText} numberOfLines={4}>
-                        {idea.script}
-                      </Text>
-                    ) : (
-                      <Text style={styles.scriptPlaceholder}>
-                        No script content available
-                      </Text>
-                    )}
+                  {/* Divider before script */}
+                  <View style={styles.divider} />
 
-                    {/* Copy button */}
+                  {/* Script section with dropdown */}
+                  <TouchableOpacity
+                    style={styles.scriptDropdownHeader}
+                    onPress={() => toggleScriptExpansion(index)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.scriptDisplayLabel}>Script</Text>
+                    {isScriptExpanded ? (
+                      <ChevronUp size={20} color="#22c55e" />
+                    ) : (
+                      <ChevronDown size={20} color="#22c55e" />
+                    )}
+                  </TouchableOpacity>
+
+                  {isScriptExpanded && (
+                    <Text style={styles.scriptDisplay}>
+                      {idea.script && idea.script.trim() !== '' ? idea.script : 'No content available'}
+                    </Text>
+                  )}
+
+                  {/* Copy button - Centered */}
+                  {idea.script && idea.script.trim() !== '' && (
                     <TouchableOpacity
-                      style={styles.copyButton}
+                      style={styles.copyButtonCentered}
                       onPress={() => copyScriptToClipboard(idea.script, idea.title)}
                       activeOpacity={0.8}
                     >
                       <Copy size={16} color="#ffffff" />
-                      <Text style={styles.copyButtonText}>Copy</Text>
+                      <Text style={styles.copyButtonText}>Copy Script</Text>
                     </TouchableOpacity>
+                  )}
+
+                  {/* Mark as Complete/Incomplete buttons */}
+                  <View style={styles.flagButtonsContainer}>
+                    {idea.flag === 'Incomplete' ? (
+                      <TouchableOpacity
+                        style={[styles.flagButton, styles.markCompleteButton]}
+                        onPress={() => updateIdeaFlag(idea.batchNumber, 'Complete')}
+                        activeOpacity={0.8}
+                      >
+                        <FileCheck size={16} color="#ffffff" />
+                        <Text style={styles.flagButtonText}>Mark as Complete</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.flagButton, styles.markIncompleteButton]}
+                        onPress={() => updateIdeaFlag(idea.batchNumber, 'Incomplete')}
+                        activeOpacity={0.8}
+                      >
+                        <AlertCircle size={16} color="#ffffff" />
+                        <Text style={styles.flagButtonText}>Mark as Incomplete</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               );
@@ -339,44 +413,33 @@ const styles = StyleSheet.create({
   incompleteText: {
     color: '#f59e0b',
   },
-  ideaDescription: {
+  // Updated description display styles
+  descriptionDisplay: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
     color: '#cccccc',
     lineHeight: 20,
     marginBottom: 12,
   },
-  scriptContainer: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#333333',
-  },
-  scriptLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter-Medium',
-    color: '#22c55e',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  scriptText: {
-    fontSize: 13,
-    fontFamily: 'Inter-Regular',
+  descriptionDisplayLabel: {
+    fontFamily: 'Inter-SemiBold',
     color: '#e5e5e5',
-    lineHeight: 18,
-    marginBottom: 12,
   },
-  scriptPlaceholder: {
-    fontSize: 13,
+  // New styles for script display
+  scriptDisplay: {
+    fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: '#666666',
-    lineHeight: 18,
-    fontStyle: 'italic',
+    color: '#cccccc',
+    lineHeight: 20,
+    marginTop: 8,
     marginBottom: 12,
   },
-  copyButton: {
+  scriptDisplayLabel: {
+    fontFamily: 'Inter-SemiBold',
+    color: '#e5e5e5',
+  },
+  // Centered copy button style
+  copyButtonCentered: {
     backgroundColor: '#22c55e',
     borderRadius: 6,
     paddingVertical: 8,
@@ -386,10 +449,62 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignSelf: 'center',
     gap: 6,
+    marginTop: 8,
   },
   copyButtonText: {
     color: '#ffffff',
     fontSize: 14,
     fontFamily: 'Inter-Medium',
+  },
+  // New divider style
+  divider: {
+    height: 1,
+    backgroundColor: '#333333',
+    marginVertical: 12,
+    borderRadius: 0.5,
+  },
+  // New styles for script dropdown header
+  scriptDropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    marginTop: 8,
+    marginBottom: 4,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#333333',
+  },
+  // Styles for the new flag buttons
+  flagButtonsContainer: {
+    marginTop: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  flagButton: {
+    borderRadius: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  markCompleteButton: {
+    backgroundColor: '#22c55e',
+    borderColor: '#1a9e4e',
+  },
+  markIncompleteButton: {
+    backgroundColor: '#f59e0b',
+    borderColor: '#cc8200',
+  },
+  flagButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
   },
 });
