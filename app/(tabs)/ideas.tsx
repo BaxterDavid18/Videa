@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } 
 import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FileText, Calendar, Hash, RefreshCw, FileCheck, CircleAlert as AlertCircle } from 'lucide-react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withRotation, withTiming } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
 interface Idea {
   title: string;
@@ -44,8 +44,8 @@ export default function IdeasScreen() {
   const onRefreshButtonPress = async () => {
     setIsRefreshButtonLoading(true);
     
-    // Animate refresh button
-    refreshRotation.value = withRotation(refreshRotation.value + 360, withTiming(500));
+    // Animate refresh button - compatible with older versions
+    refreshRotation.value = withTiming(refreshRotation.value + 360, { duration: 500 });
     
     await fetchIdeas();
     setIsRefreshButtonLoading(false);

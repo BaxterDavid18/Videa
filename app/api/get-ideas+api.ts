@@ -8,7 +8,7 @@ export async function GET(request: Request) {
       'http://0.0.0.0:3001'
     ].filter(Boolean);
 
-    let lastError;
+    let lastError: string = '';
     
     for (const baseUrl of possibleUrls) {
       try {
@@ -31,11 +31,12 @@ export async function GET(request: Request) {
           );
         } else {
           console.error(`Backend API error from ${baseUrl}:`, result);
-          lastError = result;
+          lastError = typeof result === 'object' ? JSON.stringify(result) : String(result);
         }
       } catch (error) {
-        console.error(`Failed to connect to ${baseUrl}:`, error.message);
-        lastError = error;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`Failed to connect to ${baseUrl}:`, errorMessage);
+        lastError = errorMessage;
         continue; // Try next URL
       }
     }
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
         success: false,
         ideas: sampleIdeas,
         error: 'Backend API unavailable - showing sample data',
-        details: lastError instanceof Error ? lastError.message : 'Connection failed',
+        details: lastError,
         triedUrls: possibleUrls
       }),
       {
@@ -84,6 +85,7 @@ export async function GET(request: Request) {
       }
     );
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error in get-ideas API route:', error);
     
     // Return empty array as ultimate fallback
@@ -92,7 +94,7 @@ export async function GET(request: Request) {
         success: false,
         ideas: [],
         error: 'Failed to fetch ideas',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: errorMessage
       }),
       {
         status: 500,
