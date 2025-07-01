@@ -141,7 +141,7 @@ app.put('/api/update-idea-flag', async (req, res) => {
 
     console.log(`Backend: Updating idea with batch number ${batchNumber} to ${newFlag}`);
     
-    // Update the flag in Google Sheets
+    // Update the flag in Google Sheets - FIXED: using correct function name
     const result = await updateIdeaFlag(batchNumber, newFlag);
 
     console.log('Backend: Successfully updated idea flag in Google Sheets');
