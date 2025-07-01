@@ -109,58 +109,69 @@ async function fetchFromGoogleSheets() {
     return [];
   }
 
-  // Skip header row and map data
-  const ideas = rows.slice(1).map((row, index) => {
-    // Ensure we have enough columns
-    const paddedRow = [...row];
-    while (paddedRow.length < 6) {
-      paddedRow.push('');
-    }
-    
-    const title = paddedRow[0] || '';           // Column A
-    const description = paddedRow[1] || '';     // Column B
-    const date = paddedRow[2] || '';            // Column C
-    const batchNumber = parseInt(paddedRow[3]) || (index + 1); // Column D
-    const flagValue = paddedRow[4] || '';       // Column E (Flag)
-    const script = paddedRow[5] || '';          // Column F (Script)
-    
-    // Determine flag status: "Complete" if has value, "Incomplete" if empty
-    const flag = flagValue.trim() !== '' ? 'Complete' : 'Incomplete';
-    
-    console.log(`Processing row ${index + 1}:`, {
-      title: title,
-      description: description.substring(0, 50) + '...',
-      flagValue: flagValue,
-      script: script ? script.substring(0, 100) + '...' : '(empty)',
-      scriptLength: script.length,
-      flag: flag,
-      rawRowLength: row.length,
-      columnMapping: {
-        A: paddedRow[0],
-        B: paddedRow[1],
-        C: paddedRow[2],
-        D: paddedRow[3],
-        E: paddedRow[4],
-        F: paddedRow[5]
+  // Skip header row and map data - only include rows with valid titles
+  const ideas = rows.slice(1)
+    .filter((row, index) => {
+      const title = row[0] || '';
+      const hasValidTitle = title.trim() !== '';
+      if (!hasValidTitle) {
+        console.log(`Skipping row ${index + 2} - no title: [${row.join(', ')}]`);
       }
+      return hasValidTitle;
+    })
+    .map((row, index) => {
+      // Ensure we have enough columns
+      const paddedRow = [...row];
+      while (paddedRow.length < 6) {
+        paddedRow.push('');
+      }
+      
+      const title = paddedRow[0] || '';           // Column A
+      const description = paddedRow[1] || '';     // Column B
+      const date = paddedRow[2] || '';            // Column C
+      const batchNumber = parseInt(paddedRow[3]) || (index + 1); // Column D
+      const flagValue = paddedRow[4] || '';       // Column E (Flag)
+      const script = paddedRow[5] || '';          // Column F (Script)
+      
+      // Determine flag status: "Complete" if has value, "Incomplete" if empty
+      const flag = flagValue.trim() !== '' ? 'Complete' : 'Incomplete';
+      
+      console.log(`Processing row ${index + 1}:`, {
+        title: title,
+        description: description.substring(0, 50) + '...',
+        flagValue: flagValue,
+        script: script ? script.substring(0, 100) + '...' : '(empty)',
+        scriptLength: script.length,
+        flag: flag,
+        rawRowLength: row.length,
+        columnMapping: {
+          A: paddedRow[0],
+          B: paddedRow[1],
+          C: paddedRow[2],
+          D: paddedRow[3],
+          E: paddedRow[4],
+          F: paddedRow[5]
+        }
+      });
+      
+      return {
+        title,
+        description,
+        date,
+        batchNumber,
+        script,
+        flag
+      };
     });
-    
-    return {
-      title,
-      description,
-      date,
-      batchNumber,
-      script,
-      flag
-    };
-  });
 
   console.log(`Successfully fetched ${ideas.length} ideas from Google Sheets`);
-  console.log('Sample processed idea with script:', {
-    title: ideas[0]?.title,
-    scriptLength: ideas[0]?.script?.length,
-    scriptPreview: ideas[0]?.script?.substring(0, 100)
-  });
+  if (ideas.length > 0) {
+    console.log('Sample processed idea with script:', {
+      title: ideas[0]?.title,
+      scriptLength: ideas[0]?.script?.length,
+      scriptPreview: ideas[0]?.script?.substring(0, 100)
+    });
+  }
   return ideas;
 }
 
@@ -183,20 +194,24 @@ async function updateIdeaFlag(batchNumber, newFlag) {
     }
 
     // Find the row with the matching batch number (skip header row)
+    // Only consider rows that have a valid title (column A is not empty)
     let targetRowIndex = -1;
     for (let i = 1; i < rows.length; i++) {
+      const title = rows[i][0] || '';
       const rowBatchNumber = parseInt(rows[i][3]); // Column D (index 3)
-      console.log(`Checking row ${i + 1}: batch number ${rowBatchNumber} vs target ${batchNumber}`);
       
-      if (rowBatchNumber === batchNumber) {
+      console.log(`Checking row ${i + 1}: title="${title}", batch number ${rowBatchNumber} vs target ${batchNumber}`);
+      
+      // Only consider rows with valid titles and matching batch numbers
+      if (title.trim() !== '' && rowBatchNumber === batchNumber) {
         targetRowIndex = i;
-        console.log(`Found matching batch number at row ${i + 1} (0-indexed: ${i})`);
+        console.log(`Found matching batch number at row ${i + 1} (0-indexed: ${i}) with title: "${title}"`);
         break;
       }
     }
 
     if (targetRowIndex === -1) {
-      throw new Error(`No idea found with batch number ${batchNumber}`);
+      throw new Error(`No valid idea found with batch number ${batchNumber}`);
     }
 
     // Calculate the actual row number for Google Sheets (1-indexed, +1 for header)
