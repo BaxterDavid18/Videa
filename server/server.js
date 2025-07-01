@@ -5,7 +5,8 @@ const {
   fetchFromGoogleSheets,
   getNextBatchNumber,
   testGoogleSheetsConnection,
-  initializeGoogleSheet
+  initializeGoogleSheet,
+  updateIdeaFlag
 } = require('./googleSheets');
 
 const app = express();
@@ -112,6 +113,49 @@ app.get('/api/get-ideas', async (req, res) => {
       success: false,
       ideas: [],
       error: 'Failed to fetch ideas from Google Sheets',
+      details: error.message
+    });
+  }
+});
+
+// Update idea flag endpoint
+app.put('/api/update-idea-flag', async (req, res) => {
+  try {
+    const { batchNumber, newFlag } = req.body;
+
+    console.log(`Backend: Received request to update batchNumber ${batchNumber} to ${newFlag}`);
+
+    if (!batchNumber || !newFlag) {
+      return res.status(400).json({
+        success: false,
+        error: 'Batch number and new flag are required'
+      });
+    }
+
+    if (!['Complete', 'Incomplete'].includes(newFlag)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Flag must be either "Complete" or "Incomplete"'
+      });
+    }
+
+    console.log(`Backend: Updating idea with batch number ${batchNumber} to ${newFlag}`);
+    
+    // Update the flag in Google Sheets
+    const result = await updateIdeaFlag(batchNumber, newFlag);
+
+    console.log('Backend: Successfully updated idea flag in Google Sheets');
+
+    res.json({
+      success: true,
+      message: `Idea ${batchNumber} marked as ${newFlag}`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('Backend: Error updating idea flag:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update idea flag in Google Sheets',
       details: error.message
     });
   }

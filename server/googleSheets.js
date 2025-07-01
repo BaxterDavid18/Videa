@@ -164,6 +164,77 @@ async function fetchFromGoogleSheets() {
   return ideas;
 }
 
+// Update idea flag in Google Sheets
+async function updateIdeaFlag(batchNumber, newFlag) {
+  console.log(`Updating flag for batch number ${batchNumber} to ${newFlag}...`);
+  
+  try {
+    // First, get all data to find the correct row
+    const response = await makeGoogleSheetsRequest(() => sheets.spreadsheets.values.get({
+      spreadsheetId: GOOGLE_SHEETS_CONFIG.spreadsheetId,
+      range: `${GOOGLE_SHEETS_CONFIG.sheetName}!A:F`,
+    }));
+
+    const rows = response.data.values || [];
+    console.log(`Found ${rows.length} total rows in sheet`);
+
+    if (rows.length <= 1) {
+      throw new Error('No data rows found in the sheet');
+    }
+
+    // Find the row with the matching batch number (skip header row)
+    let targetRowIndex = -1;
+    for (let i = 1; i < rows.length; i++) {
+      const rowBatchNumber = parseInt(rows[i][3]); // Column D (index 3)
+      console.log(`Checking row ${i + 1}: batch number ${rowBatchNumber} vs target ${batchNumber}`);
+      
+      if (rowBatchNumber === batchNumber) {
+        targetRowIndex = i;
+        console.log(`Found matching batch number at row ${i + 1} (0-indexed: ${i})`);
+        break;
+      }
+    }
+
+    if (targetRowIndex === -1) {
+      throw new Error(`No idea found with batch number ${batchNumber}`);
+    }
+
+    // Calculate the actual row number for Google Sheets (1-indexed, +1 for header)
+    const sheetRowNumber = targetRowIndex + 1;
+    console.log(`Updating row ${sheetRowNumber} in Google Sheets`);
+
+    // Update the flag column (Column E)
+    const flagValue = newFlag === 'Complete' ? 'Complete' : '';
+    const range = `${GOOGLE_SHEETS_CONFIG.sheetName}!E${sheetRowNumber}`;
+    
+    console.log(`Updating range ${range} with value: "${flagValue}"`);
+    
+    const updateResponse = await makeGoogleSheetsRequest(() => sheets.spreadsheets.values.update({
+      spreadsheetId: GOOGLE_SHEETS_CONFIG.spreadsheetId,
+      range: range,
+      valueInputOption: 'RAW',
+      resource: {
+        values: [[flagValue]]
+      },
+    }));
+
+    console.log(`Successfully updated flag for batch ${batchNumber} to ${newFlag}`);
+    console.log('Update response:', updateResponse.data);
+    
+    return {
+      success: true,
+      batchNumber,
+      newFlag,
+      updatedRow: sheetRowNumber,
+      message: `Flag updated to ${newFlag}`
+    };
+
+  } catch (error) {
+    console.error(`Error updating flag for batch ${batchNumber}:`, error);
+    throw error;
+  }
+}
+
 // Get next batch number
 async function getNextBatchNumber() {
   console.log('Getting next batch number...');
@@ -259,5 +330,6 @@ module.exports = {
   getNextBatchNumber,
   testGoogleSheetsConnection,
   initializeGoogleSheet,
-  updateSheet
+  updateSheet,
+  updateIdeaFlag
 };
