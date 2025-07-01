@@ -1,9 +1,9 @@
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FileText, Calendar, Hash, RefreshCw, FileCheck, CircleAlert as AlertCircle, Copy } from 'lucide-react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import * as Clipboard from 'expo-clipboard';
+// import * as Clipboard from 'expo-clipboard'; // expo-clipboard is removed as per request
 
 interface Idea {
   title: string;
@@ -19,7 +19,7 @@ export default function IdeasScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isRefreshButtonLoading, setIsRefreshButtonLoading] = useState(false);
-  
+
   const refreshRotation = useSharedValue(0);
 
   const fetchIdeas = async () => {
@@ -49,23 +49,41 @@ export default function IdeasScreen() {
 
   const onRefreshButtonPress = async () => {
     setIsRefreshButtonLoading(true);
-    
+
     // Animate refresh button - compatible with older versions
     refreshRotation.value = withTiming(refreshRotation.value + 360, { duration: 500 });
-    
+
     await fetchIdeas();
     setIsRefreshButtonLoading(false);
   };
 
+  // Modified copyScriptToClipboard function to use web clipboard API for web,
+  // and a fallback for native (though expo-clipboard is recommended for native)
   const copyScriptToClipboard = async (script: string, title: string) => {
     try {
       if (script && script.trim() !== '') {
-        await Clipboard.setStringAsync(script);
-        Alert.alert('Copied!', `Script for "${title}" has been copied to clipboard.`);
+        if (Platform.OS === 'web') {
+          // Web-specific clipboard functionality
+          const textarea = document.createElement('textarea');
+          textarea.value = script;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+          Alert.alert('Copied!', `Script for "${title}" has been copied to clipboard.`);
+        } else {
+          // Fallback for native, if expo-clipboard is not used.
+          // For a production native app, expo-clipboard.setStringAsync() is the correct way.
+          // This alert is a placeholder for native functionality without expo-clipboard.
+          Alert.alert('Copy Functionality', 'Clipboard functionality for native is not implemented without expo-clipboard.');
+          // If you decide to re-add expo-clipboard for native, uncomment the original line:
+          // await Clipboard.setStringAsync(script);
+        }
       } else {
         Alert.alert('No Content', 'There is no script content to copy.');
       }
     } catch (error) {
+      console.error('Failed to copy script:', error);
       Alert.alert('Error', 'Failed to copy script to clipboard.');
     }
   };
@@ -139,7 +157,7 @@ export default function IdeasScreen() {
                 scriptLength: idea.script?.length,
                 flag: idea.flag
               });
-              
+
               return (
                 <View key={index} style={styles.ideaCard}>
                   <View style={styles.ideaHeader}>
@@ -170,11 +188,11 @@ export default function IdeasScreen() {
                       </View>
                     </View>
                   </View>
-                  
+
                   <Text style={styles.ideaDescription} numberOfLines={3}>
                     {idea.description}
                   </Text>
-                  
+
                   {/* Script section */}
                   <View style={styles.scriptContainer}>
                     <Text style={styles.scriptLabel}>Script</Text>
@@ -187,7 +205,7 @@ export default function IdeasScreen() {
                         No script content available
                       </Text>
                     )}
-                    
+
                     {/* Copy button */}
                     <TouchableOpacity
                       style={styles.copyButton}
