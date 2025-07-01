@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FileText, Calendar, Hash, RefreshCw, FileCheck, AlertCircle } from 'lucide-react-native';
+import { FileText, Calendar, Hash, RefreshCw, FileCheck, CircleAlert as AlertCircle } from 'lucide-react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withRotation, withTiming } from 'react-native-reanimated';
 
 interface Idea {
