@@ -71,7 +71,8 @@ async function updateSheet(range, values) {
 // Append data to Google Sheets
 async function appendToGoogleSheet(data) {
   console.log('Appending data to Google Sheets:', data);
-  const values = [[data.title, data.description, data.date, data.batchNumber]];
+  // Updated to include empty script and flag columns for new entries
+  const values = [[data.title, data.description, data.date, data.batchNumber, '', '']];
   return makeGoogleSheetsRequest(() => sheets.spreadsheets.values.append({
     spreadsheetId: GOOGLE_SHEETS_CONFIG.spreadsheetId,
     range: `${GOOGLE_SHEETS_CONFIG.sheetName}!A:F`, // Extended to column F to include Script and Flag
@@ -90,6 +91,14 @@ async function fetchFromGoogleSheets() {
 
   const rows = response.data.values || [];
   console.log(`Raw data from Google Sheets: ${rows.length} rows`);
+  
+  // Log the first few rows for debugging
+  if (rows.length > 0) {
+    console.log('Headers:', rows[0]);
+    if (rows.length > 1) {
+      console.log('Sample data row:', rows[1]);
+    }
+  }
 
   if (rows.length === 0) {
     console.log('No data found in Google Sheets');
@@ -103,6 +112,13 @@ async function fetchFromGoogleSheets() {
     
     // Determine flag status: "Complete" if has value, "Incomplete" if empty
     const flag = flagValue.trim() !== '' ? 'Complete' : 'Incomplete';
+    
+    console.log(`Row ${index + 1}:`, {
+      title: row[0] || '',
+      script: script,
+      flag: flag,
+      rawFlagValue: flagValue
+    });
     
     return {
       title: row[0] || '',
@@ -189,6 +205,8 @@ async function initializeGoogleSheet() {
       
       // Check if we need to add the new Script and Flag columns
       const headers = response.data.values[0];
+      console.log('Current headers:', headers);
+      
       if (headers.length < 6) {
         // Add missing headers
         const updatedHeaders = [...headers];

@@ -23,10 +23,15 @@ export default function IdeasScreen() {
 
   const fetchIdeas = async () => {
     try {
+      console.log('Fetching ideas from API...');
       const response = await fetch('/api/get-ideas');
       if (response.ok) {
         const data = await response.json();
+        console.log('API Response:', data);
+        console.log('Ideas received:', data.ideas);
         setIdeas(data.ideas || []);
+      } else {
+        console.error('Failed to fetch ideas - response not ok:', response.status);
       }
     } catch (error) {
       console.error('Failed to fetch ideas:', error);
@@ -113,51 +118,65 @@ export default function IdeasScreen() {
           </View>
         ) : (
           <View style={styles.ideasContainer}>
-            {ideas.map((idea, index) => (
-              <View key={index} style={styles.ideaCard}>
-                <View style={styles.ideaHeader}>
-                  <Text style={styles.ideaTitle} numberOfLines={2}>
-                    {idea.title}
-                  </Text>
-                  <View style={styles.ideaMeta}>
-                    <View style={styles.metaItem}>
-                      <Hash size={12} color="#22c55e" />
-                      <Text style={styles.metaText}>{idea.batchNumber}</Text>
-                    </View>
-                    <View style={styles.metaItem}>
-                      <Calendar size={12} color="#22c55e" />
-                      <Text style={styles.metaText}>{formatDate(idea.date)}</Text>
-                    </View>
-                    <View style={styles.metaItem}>
-                      {idea.flag === 'Complete' ? (
-                        <FileCheck size={12} color="#22c55e" />
-                      ) : (
-                        <AlertCircle size={12} color="#f59e0b" />
-                      )}
-                      <Text style={[
-                        styles.metaText,
-                        idea.flag === 'Complete' ? styles.completeText : styles.incompleteText
-                      ]}>
-                        {idea.flag}
-                      </Text>
+            {ideas.map((idea, index) => {
+              console.log(`Rendering idea ${index}:`, {
+                title: idea.title,
+                script: idea.script,
+                scriptLength: idea.script?.length,
+                flag: idea.flag
+              });
+              
+              return (
+                <View key={index} style={styles.ideaCard}>
+                  <View style={styles.ideaHeader}>
+                    <Text style={styles.ideaTitle} numberOfLines={2}>
+                      {idea.title}
+                    </Text>
+                    <View style={styles.ideaMeta}>
+                      <View style={styles.metaItem}>
+                        <Hash size={12} color="#22c55e" />
+                        <Text style={styles.metaText}>{idea.batchNumber}</Text>
+                      </View>
+                      <View style={styles.metaItem}>
+                        <Calendar size={12} color="#22c55e" />
+                        <Text style={styles.metaText}>{formatDate(idea.date)}</Text>
+                      </View>
+                      <View style={styles.metaItem}>
+                        {idea.flag === 'Complete' ? (
+                          <FileCheck size={12} color="#22c55e" />
+                        ) : (
+                          <AlertCircle size={12} color="#f59e0b" />
+                        )}
+                        <Text style={[
+                          styles.metaText,
+                          idea.flag === 'Complete' ? styles.completeText : styles.incompleteText
+                        ]}>
+                          {idea.flag}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
-                
-                <Text style={styles.ideaDescription} numberOfLines={3}>
-                  {idea.description}
-                </Text>
-                
-                {idea.script && (
+                  
+                  <Text style={styles.ideaDescription} numberOfLines={3}>
+                    {idea.description}
+                  </Text>
+                  
+                  {/* Always show script section, even if empty */}
                   <View style={styles.scriptContainer}>
                     <Text style={styles.scriptLabel}>Script</Text>
-                    <Text style={styles.scriptText} numberOfLines={4}>
-                      {idea.script}
-                    </Text>
+                    {idea.script && idea.script.trim() !== '' ? (
+                      <Text style={styles.scriptText} numberOfLines={4}>
+                        {idea.script}
+                      </Text>
+                    ) : (
+                      <Text style={styles.scriptPlaceholder}>
+                        No script content available
+                      </Text>
+                    )}
                   </View>
-                )}
-              </View>
-            ))}
+                </View>
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -305,5 +324,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#e5e5e5',
     lineHeight: 18,
+  },
+  scriptPlaceholder: {
+    fontSize: 13,
+    fontFamily: 'Inter-Regular',
+    color: '#666666',
+    lineHeight: 18,
+    fontStyle: 'italic',
   },
 });
